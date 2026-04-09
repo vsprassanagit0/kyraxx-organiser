@@ -59,6 +59,26 @@ const client = new Client({
   },
 });
 
+// ── Patch: discord.js v14 strips the emoji field from Custom status ─────────
+// The _parse method in ClientPresence only forwards type/name/state/url to the
+// Gateway, but Discord's API accepts an `emoji` object ({ name, id?, animated? })
+// on Activity type 4 (Custom). We patch _parse to include it.
+// Ref: https://github.com/discordjs/discord.js/issues/9760
+
+const origParse = client.presence._parse.bind(client.presence);
+client.presence._parse = function patchedParse(presenceData) {
+  const data = origParse(presenceData);
+  if (presenceData.activities?.length) {
+    for (let i = 0; i < presenceData.activities.length; i++) {
+      const src = presenceData.activities[i];
+      if (src.emoji && data.activities[i]) {
+        data.activities[i].emoji = src.emoji;
+      }
+    }
+  }
+  return data;
+};
+
 // ── State: track when we're waiting for a label ─────────────────────────────
 
 const awaitingLabel = new Set(); // user IDs currently being prompted
