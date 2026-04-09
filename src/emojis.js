@@ -50,6 +50,42 @@ const CUSTOM = {
   k_typing:     '<a:k_typing:1491765036732121190>',  // Three dots typing
   k_success:    '<a:k_success:1491765027198341194>',  // Animated checkmark
   k_pulse:      '<a:k_pulse:1491765048841080944>',  // Pulsing glow dot
+
+  // ── Extra static (v2) ──
+  k_star:         '<:k_star:1491767986695045273>',
+  k_crown:        '<:k_crown:1491767996102869073>',
+  k_fire:         '<:k_fire:1491768004407726091>',
+  k_heart:        '<:k_heart:1491768013152714823>',
+  k_shield:       '<:k_shield:1491768021973205052>',
+  k_bolt:         '<:k_bolt:1491768030613471407>',
+  k_gem:          '<:k_gem:1491768039366987776>',
+  k_clock:        '<:k_clock:1491768048049197146>',
+  k_tag:          '<:k_tag:1491768056878465174>',
+  k_wave:         '<:k_wave:1491768065665536060>',
+
+  // ── Extra animated (v2) ──
+  k_anim_fire:    '<a:k_anim_fire:1491768073932243097>',
+  k_anim_star:    '<a:k_anim_star:1491768082723635230>',
+  k_anim_heart:   '<a:k_anim_heart:1491768090910785577>',
+  k_anim_crown:   '<a:k_anim_crown:1491768099450388673>',
+  k_anim_bolt:    '<a:k_anim_bolt:1491768108900159529>',
+  k_anim_wave:    '<a:k_anim_wave:1491768117372653619>',
+  k_anim_rocket:  '<a:k_anim_rocket:1491768129456574535>',
+  k_anim_party:   '<a:k_anim_party:1491768141364330516>',
+  k_anim_eyes:    '<a:k_anim_eyes:1491768150801518623>',
+
+  // ── Remaining 11 (run: node setup-emojis-retry.js after ~45 min) ──
+  k_anim_gear:    '',
+  k_anim_alert:   '',
+  k_anim_rainbow: '',
+  k_anim_coin:    '',
+  k_anim_ping:    '',
+  k_anim_verify:  '',
+  k_anim_arrow:   '',
+  k_anim_music:   '',
+  k_anim_chat:    '',
+  k_anim_lock:    '',
+  k_anim_globe:   '',
 };
 
 // ── Unicode fallbacks ───────────────────────────────────────────────────────
