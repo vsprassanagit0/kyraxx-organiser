@@ -372,8 +372,46 @@ function formatStats(stats) {
     .setFooter(foot('stats'));
 }
 
+function formatPinnedResults(results) {
+  if (!results.length) {
+    return new EmbedBuilder()
+      .setColor(COLORS.empty)
+      .setDescription(`${e('k_star')}  No pinned entries. Use \`!pin <id>\` to pin one.`);
+  }
+
+  const lines = results.map((r, i) => {
+    const preview = truncate(r.content_raw, 60);
+    const date = (r.created_at.split('T')[0] || r.created_at.split(' ')[0]);
+    return `${e('k_anim_star')}  \`#${r.id}\`  \u2502  \`${r.content_type}\`  \u2502  \`${date}\`\n\u2003\u2003> ${preview}`;
+  });
+
+  return new EmbedBuilder()
+    .setColor(0xFFD700)
+    .setTitle(`${e('k_star')}  Pinned Entries`)
+    .setDescription(`${sep()}\n\n${truncate(lines.join('\n\n'), 4000)}\n\n${sep()}`)
+    .setFooter({ text: `${results.length} pinned  \u2022  Kyraxx Organiser` });
+}
+
+function formatDuplicateWarning(url, existingId, existingDate) {
+  return new EmbedBuilder()
+    .setColor(0xFEE75C)
+    .setTitle(`${e('k_anim_eyes')}  Duplicate Detected`)
+    .setDescription(
+      `${sep()}\n\n` +
+      `${e('k_shield')}  This link was already saved!\n\n` +
+      `${e('k_link')}  \`${truncate(url, 60)}\`\n` +
+      `${e('k_clock')}  Saved on: \`${existingDate}\`\n` +
+      `${e('k_tag')}  Entry: \`#${existingId}\`\n\n` +
+      `${div()}\n\n` +
+      `Reply \`yes\` to save anyway, or \`no\` to skip.\n\n` +
+      `*${e('k_loading')} Auto-skipping in 15 seconds\u2026*\n\n` +
+      sep()
+    );
+}
+
 module.exports = {
   formatLinks, formatMedia, formatCode, formatPrompt,
   formatForwarded, formatMix, formatAskLabel,
   formatSearchResults, formatRecentResults, formatStats,
+  formatPinnedResults, formatDuplicateWarning,
 };

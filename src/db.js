@@ -144,8 +144,53 @@ function getById(userId, entryId) {
   return stmtGetById.get(entryId, userId);
 }
 
+function clearAll(userId) {
+  const result = db.prepare(`UPDATE entries SET deleted = 1 WHERE user_id = ? AND deleted = 0`).run(userId);
+  return result.changes;
+}
+
+function exportAll(userId) {
+  return db.prepare(`SELECT * FROM entries WHERE user_id = ? AND deleted = 0 ORDER BY created_at ASC`).all(userId);
+}
+
+function findDuplicateUrl(userId, url) {
+  return db.prepare(`
+    SELECT id, created_at FROM entries
+    WHERE user_id = ? AND deleted = 0 AND urls LIKE ?
+    ORDER BY created_at DESC LIMIT 1
+  `).get(userId, `%${url}%`);
+}
+
+function pinEntry(userId, entryId) {
+  // Toggle pin: use a 'pinned' field. We'll add it via ALTER TABLE if needed.
+  try {
+    db.exec(`ALTER TABLE entries ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0`);
+  } catch { /* column already exists */ }
+
+  const entry = getById(userId, entryId);
+  if (!entry) return null;
+
+  const newPinned = (entry.pinned || 0) === 1 ? 0 : 1;
+  db.prepare(`UPDATE entries SET pinned = ? WHERE id = ? AND user_id = ?`).run(newPinned, entryId, userId);
+  return newPinned;
+}
+
+function getPinned(userId) {
+  try {
+    return db.prepare(`
+      SELECT * FROM entries WHERE user_id = ? AND deleted = 0 AND pinned = 1
+      ORDER BY created_at DESC LIMIT 20
+    `).all(userId);
+  } catch {
+    return []; // pinned column doesn't exist yet
+  }
+}
+
 function close() {
   db.close();
 }
 
-module.exports = { saveEntry, search, getRecent, deleteEntry, getStats, getById, close };
+module.exports = {
+  saveEntry, search, getRecent, deleteEntry, getStats, getById,
+  clearAll, exportAll, findDuplicateUrl, pinEntry, getPinned, close,
+};

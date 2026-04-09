@@ -4,7 +4,7 @@ const { Client, GatewayIntentBits, Partials, Options, ChannelType, ActivityType,
 const { parseMessage } = require('./parser');
 const { routeContent } = require('./router');
 const { handleCommand } = require('./commands');
-const { formatAskLabel } = require('./formatter');
+const { formatAskLabel, formatDuplicateWarning } = require('./formatter');
 const { e } = require('./emojis');
 const db = require('./db');
 
@@ -105,6 +105,64 @@ function askAndOrganize(channel, parsed, user) {
   });
 }
 
+// ── Auto-label generator ────────────────────────────────────────────────────
+
+function generateAutoLabel(parsed) {
+  // Try to generate a meaningful label from the content
+  if (parsed.urls.length === 1) {
+    return parsed.urls[0].platform + ' ' + parsed.urls[0].category;
+  }
+  if (parsed.urls.length > 1) {
+    return `${parsed.urls.length} links (${[...new Set(parsed.urls.map(u => u.category))].join(', ')})`;
+  }
+  if (parsed.codeBlocks.length > 0) {
+    return `${parsed.codeBlocks[0].language} code snippet`;
+  }
+  if (parsed.text) {
+    // First meaningful words of the text
+    const words = parsed.text.replace(/https?:\/\/\S+/g, '').trim().split(/\s+/).slice(0, 5);
+    if (words.length > 0 && words.join(' ').length > 3) {
+      return words.join(' ');
+    }
+  }
+  if (parsed.attachments.length > 0) {
+    return `${parsed.attachments.length} file(s)`;
+  }
+  return null;
+}
+
+// ── Duplicate check helper ──────────────────────────────────────────────────
+
+async function checkDuplicates(channel, parsed, userId) {
+  for (const url of parsed.urls) {
+    const dup = db.findDuplicateUrl(userId, url.raw);
+    if (dup) {
+      const date = dup.created_at.split('T')[0] || dup.created_at.split(' ')[0];
+      const embed = formatDuplicateWarning(url.raw, dup.id, date);
+      await channel.send({ embeds: [embed] });
+
+      // Wait for yes/no reply
+      const shouldSave = await new Promise((resolve) => {
+        const timer = setTimeout(() => {
+          pendingLabel.delete(userId + '_dup');
+          resolve(false); // Timeout = skip
+        }, 15000);
+
+        pendingLabel.set(userId + '_dup', {
+          resolve: (reply) => {
+            clearTimeout(timer);
+            resolve(reply && reply.toLowerCase().startsWith('y'));
+          },
+          timer,
+        });
+      });
+
+      if (!shouldSave) return false; // Skip this content
+    }
+  }
+  return true; // No duplicates or user said yes
+}
+
 // ── Process batch ───────────────────────────────────────────────────────────
 
 async function processBatch(messages) {
@@ -126,8 +184,22 @@ async function processBatch(messages) {
   }
 
   try {
+    // Check for duplicate links
+    if (parsed.urls.length > 0) {
+      const proceed = await checkDuplicates(channel, parsed, user.id);
+      if (!proceed) {
+        await channel.send(`${e('k_shield')} Skipped duplicate content.`);
+        return;
+      }
+    }
+
     // Ask for a label
-    const label = await askAndOrganize(channel, parsed, user, messages);
+    let label = await askAndOrganize(channel, parsed, user);
+
+    // Auto-label if user skipped
+    if (!label) {
+      label = generateAutoLabel(parsed);
+    }
 
     // Route to the correct server channel
     const result = await routeContent(client, parsed, user, label);
@@ -175,6 +247,16 @@ async function handleDM(message) {
     try {
       await message.reply(`${e('k_shield')} This bot is private.`);
     } catch { /* ignore */ }
+    return;
+  }
+
+  // Check for duplicate confirmation reply first
+  const dupKey = message.author.id + '_dup';
+  if (pendingLabel.has(dupKey)) {
+    const pending = pendingLabel.get(dupKey);
+    pendingLabel.delete(dupKey);
+    clearTimeout(pending.timer);
+    pending.resolve(message.content.trim());
     return;
   }
 
