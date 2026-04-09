@@ -135,7 +135,7 @@ async function processBatch(messages) {
 
   if (parsed.contentTypes.length === 0 && !parsed.forwarded) {
     try {
-      await messages[0].reply('\u2753 I couldn\'t find anything to organise. Send me links, text, code, or files!');
+      await messages[0].reply(`${e('k_search')} I couldn't find anything to organise. Send me links, text, code, or files!`);
     } catch { /* ignore */ }
     return;
   }
@@ -149,7 +149,7 @@ async function processBatch(messages) {
 
     // React to original messages
     for (const msg of messages) {
-      try { await msg.react('\u2705'); } catch { /* ignore */ }
+      try { await msg.react('1491764852258246687'); } catch { /* ignore */ }
     }
 
     // Confirmation
@@ -161,13 +161,13 @@ async function processBatch(messages) {
     if (parsed.isPrompt) parts.push(`${e('k_prompt')} prompt`);
     if (parsed.forwarded) parts.push(`${e('k_forward')} forwarded`);
 
-    let reply = `${e('k_success')} **Organised!**  ${parts.join('  \u2022  ')}`;
+    let reply = `${e('k_anim_party')} **Organised!**  ${parts.join('  \u2022  ')}`;
     if (label) reply += `\n${e('k_pin')} Label: **"${label}"**`;
     if (result.filedTo) {
       reply += `\n${e('k_inbox')} Filed to: <#${result.filedTo}>  (${result.label})`;
     }
     if (result.errors.length) {
-      reply += `\n\u26A0\uFE0F Errors: ${result.errors.join(', ')}`;
+      reply += `\n${e('k_shield')} Errors: ${result.errors.join(', ')}`;
     }
 
     await channel.send(reply);
@@ -175,7 +175,7 @@ async function processBatch(messages) {
   } catch (err) {
     console.error('[KYRAXX] Route error:', err.message);
     try {
-      await channel.send('\u274C Something went wrong. Please try again.');
+      await channel.send(`${e('k_shield')} Something went wrong. Please try again.`);
     } catch { /* ignore */ }
   }
 }
@@ -204,7 +204,7 @@ async function handleDM(message) {
       await handleCommand(message);
     } catch (err) {
       console.error('[KYRAXX] Command error:', err.message);
-      try { await message.reply('\u274C Command failed. Try `!help`.'); } catch { /* ignore */ }
+      try { await message.reply(`${e('k_shield')} Command failed. Try \`!help\`.`); } catch { /* ignore */ }
     }
     return;
   }
@@ -217,13 +217,15 @@ async function handleDM(message) {
 client.once('ready', () => {
   const mem = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
 
-  // ── Set presence: Do Not Disturb + custom status with animated crown emoji ──
-  client.user.setStatus('dnd');
-  client.user.setActivity({
-    name: 'Custom Status',
-    type: ActivityType.Custom,
-    state: 'Personal Saver for my King !',
-    emoji: { id: '1491768099450388673', name: 'k_anim_crown', animated: true },
+  // ── Set presence: Do Not Disturb + custom status with animated gem emoji ──
+  client.user.setPresence({
+    status: 'dnd',
+    activities: [{
+      name: 'customstatus',
+      type: ActivityType.Custom,
+      state: 'Personal Saver for my King !',
+      emoji: { id: '1491768039366987776', name: 'k_gem', animated: false },
+    }],
   });
 
   console.log('');

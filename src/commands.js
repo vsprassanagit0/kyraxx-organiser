@@ -1,19 +1,20 @@
 const db = require('./db');
 const fmt = require('./formatter');
+const { e } = require('./emojis');
 
 // ── Command handlers ────────────────────────────────────────────────────────
 
 async function handleHelp(message) {
   const help = [
-    '**Kyraxx Organiser Commands**',
+    `${e('k_anim_crown')} **Kyraxx Organiser Commands**`,
     '',
-    '`!help` \u2014 Show this message',
-    '`!search <query>` \u2014 Search your saved content',
-    '`!recent [count]` \u2014 Show recent entries (default 5, max 20)',
-    '`!delete <id>` \u2014 Delete an entry by its ID',
-    '`!stats` \u2014 Show your content stats',
+    `${e('k_bolt')} \`!help\` \u2014 Show this message`,
+    `${e('k_search')} \`!search <query>\` \u2014 Search your saved content`,
+    `${e('k_clock')} \`!recent [count]\` \u2014 Show recent entries (default 5, max 20)`,
+    `${e('k_fire')} \`!delete <id>\` \u2014 Delete an entry by its ID`,
+    `${e('k_stats')} \`!stats\` \u2014 Show your content stats`,
     '',
-    'Or just send me any text, links, code, or files \u2014 I\'ll organise them for you!',
+    `${e('k_anim_sparkle')} Or just send me any text, links, code, or files \u2014 I'll organise them for you!`,
   ];
   await message.reply(help.join('\n'));
 }
@@ -21,7 +22,7 @@ async function handleHelp(message) {
 async function handleSearch(message, args) {
   const query = args.join(' ').trim();
   if (!query) {
-    return message.reply('Usage: `!search <query>`');
+    return message.reply(`${e('k_search')} Usage: \`!search <query>\``);
   }
 
   const results = db.search(message.author.id, query);
@@ -39,19 +40,19 @@ async function handleRecent(message, args) {
 async function handleDelete(message, args) {
   const id = parseInt(args[0]);
   if (!id || isNaN(id)) {
-    return message.reply('Usage: `!delete <id>` \u2014 use `!recent` to find entry IDs.');
+    return message.reply(`${e('k_tag')} Usage: \`!delete <id>\` \u2014 use \`!recent\` to find entry IDs.`);
   }
 
   const entry = db.getById(message.author.id, id);
   if (!entry) {
-    return message.reply(`Entry \`#${id}\` not found.`);
+    return message.reply(`${e('k_shield')} Entry \`#${id}\` not found.`);
   }
 
   const deleted = db.deleteEntry(message.author.id, id);
   if (deleted) {
-    await message.reply(`Entry \`#${id}\` deleted.`);
+    await message.reply(`${e('k_anim_fire')} Entry \`#${id}\` deleted.`);
   } else {
-    await message.reply(`Could not delete entry \`#${id}\`.`);
+    await message.reply(`${e('k_shield')} Could not delete entry \`#${id}\`.`);
   }
 }
 
@@ -76,7 +77,7 @@ async function handleCommand(message) {
   const handler = COMMANDS[cmd.toLowerCase()];
 
   if (!handler) {
-    return message.reply(`Unknown command \`!${cmd}\`. Type \`!help\` for available commands.`);
+    return message.reply(`${e('k_shield')} Unknown command \`!${cmd}\`. Type \`!help\` for available commands.`);
   }
 
   await handler(message, args);

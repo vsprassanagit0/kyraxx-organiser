@@ -1,5 +1,6 @@
 const fmt = require('./formatter');
 const db = require('./db');
+const { e, routeIcon } = require('./emojis');
 
 // ── Channel mapping ─────────────────────────────────────────────────────────
 
@@ -14,14 +15,13 @@ function getChannelMap() {
   };
 }
 
-const ROUTE_LABELS = {
-  prompts:   '\uD83E\uDD16 Prompts',
-  media:     '\uD83D\uDCCE Media',
-  links:     '\uD83D\uDD17 Links',
-  forwarded: '\uD83D\uDD04 Forwarded',
-  code:      '\uD83D\uDCBB Code',
-  mix:       '\uD83D\uDCE6 Mix',
-};
+function getRouteLabel(route) {
+  const names = {
+    prompts: 'Prompts', media: 'Media', links: 'Links',
+    forwarded: 'Forwarded', code: 'Code', mix: 'Mix',
+  };
+  return `${routeIcon(route)} ${names[route] || 'Unknown'}`;
+}
 
 // ── Channel fetching ────────────────────────────────────────────────────────
 
@@ -86,14 +86,14 @@ async function routeContent(client, parsed, user, label) {
   let filedTo = null;
 
   if (!channelId) {
-    return { filedTo: null, route, label: ROUTE_LABELS[route], errors: ['Channel not configured'] };
+    return { filedTo: null, route, label: getRouteLabel(route), errors: ['Channel not configured'] };
   }
 
   try {
     const channel = await getChannel(client, channelId);
     if (!channel) {
       errors.push('Channel not found');
-      return { filedTo: null, route, label: ROUTE_LABELS[route], errors };
+      return { filedTo: null, route, label: getRouteLabel(route), errors };
     }
 
     const embeds = buildEmbeds(parsed, user, label);
@@ -118,7 +118,7 @@ async function routeContent(client, parsed, user, label) {
     errors.push(err.message);
   }
 
-  return { filedTo, route, label: ROUTE_LABELS[route], errors };
+  return { filedTo, route, label: getRouteLabel(route), errors };
 }
 
 module.exports = { routeContent };
