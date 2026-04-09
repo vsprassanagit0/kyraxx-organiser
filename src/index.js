@@ -18,8 +18,11 @@ for (const key of REQUIRED_ENV) {
   }
 }
 
-const OWNER_ID = process.env.OWNER_ID;
-const LABEL_TIMEOUT = 30000; // 30 seconds to reply with label
+const OWNER_IDS = [
+  process.env.OWNER_ID,            // Bot account
+  '1477265298796052573',           // Main account
+];
+const LABEL_TIMEOUT = 30000;
 
 // ── Client setup ────────────────────────────────────────────────────────────
 
@@ -29,6 +32,7 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.DirectMessages,
+    GatewayIntentBits.GuildMembers,
   ],
   partials: [
     Partials.Channel,
@@ -38,7 +42,7 @@ const client = new Client({
   makeCache: Options.cacheWithLimits({
     ...Options.DefaultMakeCacheSettings,
     MessageManager: 10,
-    GuildMemberManager: 0,
+    GuildMemberManager: 10,
     ReactionManager: 0,
     PresenceManager: 0,
     VoiceStateManager: 0,
@@ -182,9 +186,9 @@ async function handleDM(message) {
   if (message.author.bot) return;
 
   // Owner-only
-  if (message.author.id !== OWNER_ID) {
+  if (!OWNER_IDS.includes(message.author.id)) {
     try {
-      await message.reply('\uD83D\uDD12 This bot is private.');
+      await message.reply(`${e('k_shield')} This bot is private.`);
     } catch { /* ignore */ }
     return;
   }
@@ -227,11 +231,54 @@ client.once('ready', () => {
   console.log('  \u2502  Kyraxx Organiser            \u2502');
   console.log('  \u251C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524');
   console.log(`  \u2502  Bot:    ${client.user.tag.padEnd(24)}\u2502`);
-  console.log(`  \u2502  Owner:  ${OWNER_ID.padEnd(24)}\u2502`);
+  console.log(`  \u2502  Owners: ${OWNER_IDS.length} authorized          \u2502`);
   console.log(`  \u2502  Memory: ${(mem + 'MB').padEnd(24)}\u2502`);
   console.log('  \u2502  Status: Do Not Disturb       \u2502');
   console.log('  \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518');
   console.log('');
+});
+
+// ── Event: guildMemberAdd (server protection) ──────────────────────────────
+
+client.on('guildMemberAdd', async (member) => {
+  // Allow owners and bots
+  if (OWNER_IDS.includes(member.id)) return;
+  if (member.user.bot) return;
+
+  console.log(`[KYRAXX] Unauthorized join: ${member.user.tag} (${member.id})`);
+
+  // Send DM before kicking
+  try {
+    const { EmbedBuilder } = require('discord.js');
+    const kickEmbed = new EmbedBuilder()
+      .setColor(0xED4245)
+      .setTitle(`${e('k_shield')}  Access Denied`)
+      .setDescription(
+        `\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n` +
+        `${e('k_anim_bolt')}  **This Server is Protected and Only**\n` +
+        `**Authorised Users Can Join !**\n\n` +
+        `\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n` +
+        `${e('k_anim_crown')}  This is a **private server** managed\n` +
+        `by **Kyraxx Organiser**.\n\n` +
+        `${e('k_anim_heart')}  If you believe this is a mistake,\n` +
+        `contact the server owner.\n\n` +
+        `\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501`
+      )
+      .setFooter({ text: 'Kyraxx Organiser  \u2022  Server Protection' })
+      .setTimestamp();
+
+    await member.send({ embeds: [kickEmbed] });
+  } catch {
+    // Can't DM user (DMs disabled), kick anyway
+  }
+
+  // Kick the member
+  try {
+    await member.kick('Unauthorized: not in owner list');
+    console.log(`[KYRAXX] Kicked ${member.user.tag}`);
+  } catch (err) {
+    console.error(`[KYRAXX] Failed to kick ${member.user.tag}:`, err.message);
+  }
 });
 
 // ── Event: messageCreate ────────────────────────────────────────────────────
