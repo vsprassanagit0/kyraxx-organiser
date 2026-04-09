@@ -1,9 +1,10 @@
 require('dotenv').config();
 
-const { Client, GatewayIntentBits, Partials, Options, ChannelType, Collection } = require('discord.js');
+const { Client, GatewayIntentBits, Partials, Options, ChannelType } = require('discord.js');
 const { parseMessage } = require('./parser');
 const { routeContent } = require('./router');
 const { handleCommand } = require('./commands');
+const { formatAskLabel } = require('./formatter');
 const db = require('./db');
 
 // ── Validate required env vars ──────────────────────────────────────────────
@@ -17,8 +18,9 @@ for (const key of REQUIRED_ENV) {
 }
 
 const OWNER_ID = process.env.OWNER_ID;
+const LABEL_TIMEOUT = 30000; // 30 seconds to reply with label
 
-// ── Client setup with aggressive cache limits ──────────────────────────────
+// ── Client setup ────────────────────────────────────────────────────────────
 
 const client = new Client({
   intents: [
@@ -52,6 +54,10 @@ const client = new Client({
   },
 });
 
+// ── State: track when we're waiting for a label ─────────────────────────────
+
+const awaitingLabel = new Set(); // user IDs currently being prompted
+
 // ── Message batching (3s debounce per user) ─────────────────────────────────
 
 const userBuffers = new Map();
@@ -76,10 +82,46 @@ function bufferMessage(message) {
   }, BATCH_DELAY);
 }
 
+// ── Ask for label, then organize ────────────────────────────────────────────
+
+async function askAndOrganize(channel, parsed, user, messages) {
+  // Send the "what's this about?" prompt
+  const askEmbed = formatAskLabel(parsed);
+  await channel.send({ embeds: [askEmbed] });
+
+  // Mark that we're waiting for a label from this user
+  awaitingLabel.add(user.id);
+
+  // Wait for their reply
+  let label = null;
+  try {
+    const filter = (m) => m.author.id === user.id && !m.author.bot;
+    const collected = await channel.awaitMessages({
+      filter,
+      max: 1,
+      time: LABEL_TIMEOUT,
+      errors: ['time'],
+    });
+
+    const reply = collected.first();
+    if (reply && reply.content.toLowerCase() !== 'skip') {
+      label = reply.content.trim();
+    }
+  } catch {
+    // Timeout - no label provided, continue without
+  }
+
+  awaitingLabel.delete(user.id);
+  return label;
+}
+
+// ── Process batch ───────────────────────────────────────────────────────────
+
 async function processBatch(messages) {
   if (!messages.length) return;
 
   const user = messages[0].author;
+  const channel = messages[0].channel;
 
   const combinedContent = messages.map(m => m.content).filter(Boolean).join('\n\n');
   const allAttachments = messages.flatMap(m => [...m.attachments.values()]);
@@ -89,17 +131,23 @@ async function processBatch(messages) {
   if (parsed.contentTypes.length === 0 && !parsed.forwarded) {
     try {
       await messages[0].reply('\u2753 I couldn\'t find anything to organise. Send me links, text, code, or files!');
-    } catch { /* DM might be closed */ }
+    } catch { /* ignore */ }
     return;
   }
 
   try {
-    const result = await routeContent(client, parsed, user);
+    // Ask for a label
+    const label = await askAndOrganize(channel, parsed, user, messages);
 
+    // Route to the correct server channel
+    const result = await routeContent(client, parsed, user, label);
+
+    // React to original messages
     for (const msg of messages) {
       try { await msg.react('\u2705'); } catch { /* ignore */ }
     }
 
+    // Confirmation
     const parts = [];
     if (parsed.urls.length) parts.push(`\uD83D\uDD17 ${parsed.urls.length} link(s)`);
     if (parsed.contentTypes.includes('text')) parts.push('\uD83D\uDCDD text');
@@ -109,6 +157,7 @@ async function processBatch(messages) {
     if (parsed.forwarded) parts.push('\uD83D\uDD04 forwarded');
 
     let reply = `\u2705 **Organised!**  ${parts.join('  \u2022  ')}`;
+    if (label) reply += `\n\uD83D\uDCCC Label: **"${label}"**`;
     if (result.filedTo) {
       reply += `\n\uD83D\uDCC2 Filed to: <#${result.filedTo}>  (${result.label})`;
     }
@@ -116,12 +165,12 @@ async function processBatch(messages) {
       reply += `\n\u26A0\uFE0F Errors: ${result.errors.join(', ')}`;
     }
 
-    await messages[0].reply(reply);
+    await channel.send(reply);
 
   } catch (err) {
     console.error('[KYRAXX] Route error:', err.message);
     try {
-      await messages[0].reply('\u274C Something went wrong. Please try again.');
+      await channel.send('\u274C Something went wrong. Please try again.');
     } catch { /* ignore */ }
   }
 }
@@ -139,9 +188,12 @@ async function handleDM(message) {
     return;
   }
 
+  // If we're waiting for a label reply, don't process as new content
+  if (awaitingLabel.has(message.author.id)) return;
+
   console.log(`[KYRAXX] DM from ${message.author.tag}: ${message.content?.slice(0, 80)}`);
 
-  // Command handling (instant, no batching)
+  // Command handling
   if (message.content.startsWith('!')) {
     try {
       await handleCommand(message);
@@ -171,75 +223,47 @@ client.once('ready', () => {
   console.log('');
 });
 
-// ── Event: messageCreate (primary handler) ──────────────────────────────────
+// ── Event: messageCreate ────────────────────────────────────────────────────
 
 client.on('messageCreate', async (message) => {
-  // Handle partial channels (DMs)
   if (message.channel?.partial) {
     try { await message.channel.fetch(); } catch { return; }
   }
-
   if (message.channel.type === ChannelType.DM) {
+    handledMessages.add(message.id);
     return handleDM(message);
   }
 });
 
 // ── Fallback: Raw event handler for DMs ─────────────────────────────────────
-// discord.js sometimes fails to emit messageCreate for DM partials.
-// This raw handler catches those cases reliably.
 
 const handledMessages = new Set();
 
 client.on('raw', async (event) => {
   if (event.t !== 'MESSAGE_CREATE') return;
-  if (event.d.channel_type !== 1) return; // 1 = DM
+  if (event.d.channel_type !== 1) return;
 
   const msgId = event.d.id;
 
-  // Skip if already handled by messageCreate
-  // Give messageCreate 500ms to fire first
   setTimeout(async () => {
     if (handledMessages.has(msgId)) {
       handledMessages.delete(msgId);
       return;
     }
 
-    console.log(`[KYRAXX] Raw DM fallback for message ${msgId}`);
+    console.log(`[KYRAXX] Raw DM fallback for ${msgId}`);
 
     try {
-      // Fetch the DM channel
       const channel = await client.channels.fetch(event.d.channel_id);
       if (!channel) return;
-
-      // Fetch the actual message object
       const message = await channel.messages.fetch(msgId);
       if (!message) return;
-
+      handledMessages.add(msgId);
       await handleDM(message);
     } catch (err) {
       console.error('[KYRAXX] Raw handler error:', err.message);
     }
   }, 500);
-});
-
-// Mark messages handled by the normal messageCreate path
-const origHandleDM = handleDM;
-const wrappedHandleDM = async (message) => {
-  handledMessages.add(message.id);
-  return origHandleDM(message);
-};
-
-// Override the messageCreate handler to mark handled
-client.removeAllListeners('messageCreate');
-client.on('messageCreate', async (message) => {
-  if (message.channel?.partial) {
-    try { await message.channel.fetch(); } catch { return; }
-  }
-
-  if (message.channel.type === ChannelType.DM) {
-    handledMessages.add(message.id);
-    return handleDM(message);
-  }
 });
 
 // ── Graceful shutdown ───────────────────────────────────────────────────────
@@ -257,19 +281,11 @@ process.on('unhandledRejection', (err) => {
   console.error('[KYRAXX] Unhandled rejection:', err);
 });
 
-// ── Resource monitoring (every 10 min) ──────────────────────────────────────
-
 setInterval(() => {
   const mem = process.memoryUsage();
   console.log(`[KYRAXX] Heap: ${Math.round(mem.heapUsed / 1024 / 1024)}MB / ${Math.round(mem.heapTotal / 1024 / 1024)}MB`);
 }, 600000);
 
-// ── Cleanup handled message IDs (prevent memory leak) ───────────────────────
-
-setInterval(() => {
-  handledMessages.clear();
-}, 60000);
-
-// ── Login ───────────────────────────────────────────────────────────────────
+setInterval(() => { handledMessages.clear(); }, 60000);
 
 client.login(process.env.DISCORD_TOKEN);

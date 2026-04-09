@@ -44,7 +44,6 @@ async function safeSend(channel, payload) {
   try {
     return await channel.send(payload);
   } catch (err) {
-    // discord.js may expose rate limits via status, httpStatus, or retry_after
     const isRateLimit = err.status === 429 || err.httpStatus === 429;
     if (isRateLimit) {
       const retryAfter = err.retryAfter || err.retry_after || 2000;
@@ -57,35 +56,29 @@ async function safeSend(channel, payload) {
 
 // ── Build embed based on route ──────────────────────────────────────────────
 
-function buildEmbeds(parsed, user) {
+function buildEmbeds(parsed, user, label) {
   const route = parsed.route;
 
   switch (route) {
     case 'links':
-      return [fmt.formatLinks(parsed, user)];
-
+      return [fmt.formatLinks(parsed, user, label)];
     case 'media':
-      return [fmt.formatMedia(parsed, user)];
-
+      return [fmt.formatMedia(parsed, user, label)];
     case 'code':
-      // One embed per code block
-      return parsed.codeBlocks.map(block => fmt.formatCode(block, user));
-
+      return parsed.codeBlocks.map(block => fmt.formatCode(block, user, label));
     case 'prompts':
-      return [fmt.formatPrompt(parsed, user)];
-
+      return [fmt.formatPrompt(parsed, user, label)];
     case 'forwarded':
-      return [fmt.formatForwarded(parsed, user)];
-
+      return [fmt.formatForwarded(parsed, user, label)];
     case 'mix':
     default:
-      return [fmt.formatMix(parsed, user)];
+      return [fmt.formatMix(parsed, user, label)];
   }
 }
 
 // ── Main routing function ───────────────────────────────────────────────────
 
-async function routeContent(client, parsed, user) {
+async function routeContent(client, parsed, user, label) {
   const channels = getChannelMap();
   const route = parsed.route;
   const channelId = channels[route];
@@ -103,25 +96,21 @@ async function routeContent(client, parsed, user) {
       return { filedTo: null, route, label: ROUTE_LABELS[route], errors };
     }
 
-    const embeds = buildEmbeds(parsed, user);
+    const embeds = buildEmbeds(parsed, user, label);
 
-    // Prepare files for media/mix routes
     const files = (parsed.attachments.length > 0 && (route === 'media' || route === 'mix' || route === 'forwarded'))
       ? parsed.attachments.map(a => ({ attachment: a.url, name: a.name }))
       : [];
 
-    // Send each embed (usually just 1, multiple for code blocks)
     let lastMsg;
     for (const embed of embeds) {
       const payload = { embeds: [embed] };
-      // Attach files only to the first message
       if (files.length > 0 && embed === embeds[0]) {
         payload.files = files;
       }
       lastMsg = await safeSend(channel, payload);
     }
 
-    // Save to database
     db.saveEntry(user.id, parsed, channelId, lastMsg?.id || null);
     filedTo = channelId;
 
