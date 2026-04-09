@@ -151,9 +151,14 @@ client.once('ready', () => {
 
 // ── Event: messageCreate ────────────────────────────────────────────────────
 
+// Debug: log ALL incoming messages
 client.on('messageCreate', async (message) => {
+  console.log(`[KYRAXX] Message received | type: ${message.channel.type} | author: ${message.author?.tag} (${message.author?.id}) | bot: ${message.author?.bot} | content: ${message.content?.slice(0, 50)}`);
+
   if (message.author.bot) return;
   if (message.channel.type !== ChannelType.DM) return;
+
+  console.log(`[KYRAXX] DM from owner check: ${message.author.id} === ${OWNER_ID} => ${message.author.id === OWNER_ID}`);
 
   // Owner-only
   if (message.author.id !== OWNER_ID) {
