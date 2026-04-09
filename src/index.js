@@ -213,14 +213,13 @@ async function handleDM(message) {
 client.once('ready', () => {
   const mem = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
 
-  // ── Set presence: Do Not Disturb + custom status with animated emoji ──
-  client.user.setPresence({
-    status: 'dnd',
-    activities: [{
-      name: 'Personal Saver for my King !',
-      type: ActivityType.Custom,
-      state: 'Personal Saver for my King !',
-    }],
+  // ── Set presence: Do Not Disturb + custom status with animated crown emoji ──
+  client.user.setStatus('dnd');
+  client.user.setActivity({
+    name: 'Custom Status',
+    type: ActivityType.Custom,
+    state: 'Personal Saver for my King !',
+    emoji: { id: '1491768099450388673', name: 'k_anim_crown', animated: true },
   });
 
   console.log('');
