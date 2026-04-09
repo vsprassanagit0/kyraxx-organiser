@@ -127,6 +127,27 @@ const FALLBACK = {
   k_typing:     '\uD83D\uDCAD',      // 💭
   k_success:    '\u2705',            // ✅
   k_pulse:      '\uD83D\uDD35',      // 🔵
+
+  // v2 fallbacks
+  k_star:       '\u2B50',            // ⭐
+  k_crown:      '\uD83D\uDC51',      // 👑
+  k_fire:       '\uD83D\uDD25',      // 🔥
+  k_heart:      '\u2764\uFE0F',      // ❤️
+  k_shield:     '\uD83D\uDEE1\uFE0F',// 🛡️
+  k_bolt:       '\u26A1',            // ⚡
+  k_gem:        '\uD83D\uDC8E',      // 💎
+  k_clock:      '\uD83D\uDD50',      // 🕐
+  k_tag:        '\uD83C\uDFF7\uFE0F',// 🏷️
+  k_wave:       '\uD83D\uDC4B',      // 👋
+  k_anim_fire:  '\uD83D\uDD25',      // 🔥
+  k_anim_star:  '\u2B50',            // ⭐
+  k_anim_heart: '\u2764\uFE0F',      // ❤️
+  k_anim_crown: '\uD83D\uDC51',      // 👑
+  k_anim_bolt:  '\u26A1',            // ⚡
+  k_anim_wave:  '\uD83D\uDC4B',      // 👋
+  k_anim_rocket:'\uD83D\uDE80',      // 🚀
+  k_anim_party: '\uD83C\uDF89',      // 🎉
+  k_anim_eyes:  '\uD83D\uDC40',      // 👀
 };
 
 // ── Emoji getter ────────────────────────────────────────────────────────────

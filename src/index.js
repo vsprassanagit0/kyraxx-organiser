@@ -1,6 +1,6 @@
 require('dotenv').config();
 
-const { Client, GatewayIntentBits, Partials, Options, ChannelType, ActivityType } = require('discord.js');
+const { Client, GatewayIntentBits, Partials, Options, ChannelType, ActivityType, EmbedBuilder } = require('discord.js');
 const { parseMessage } = require('./parser');
 const { routeContent } = require('./router');
 const { handleCommand } = require('./commands');
@@ -47,7 +47,7 @@ const client = new Client({
     PresenceManager: 0,
     VoiceStateManager: 0,
     ThreadManager: 0,
-    GuildEmojiManager: 0,
+    GuildEmojiManager: 100,
     GuildStickerManager: 0,
   }),
   sweepers: {
@@ -59,29 +59,11 @@ const client = new Client({
   },
 });
 
-// ── Patch: discord.js v14 strips the emoji field from Custom status ─────────
-// The _parse method in ClientPresence only forwards type/name/state/url to the
-// Gateway, but Discord's API accepts an `emoji` object ({ name, id?, animated? })
-// on Activity type 4 (Custom). We patch _parse to include it.
-// Ref: https://github.com/discordjs/discord.js/issues/9760
-
-const origParse = client.presence._parse.bind(client.presence);
-client.presence._parse = function patchedParse(presenceData) {
-  const data = origParse(presenceData);
-  if (presenceData.activities?.length) {
-    for (let i = 0; i < presenceData.activities.length; i++) {
-      const src = presenceData.activities[i];
-      if (src.emoji && data.activities[i]) {
-        data.activities[i].emoji = src.emoji;
-      }
-    }
-  }
-  return data;
-};
-
 // ── State: track when we're waiting for a label ─────────────────────────────
 
-const awaitingLabel = new Set(); // user IDs currently being prompted
+// pendingLabel: userId -> { resolve, timer }
+// When set, the next DM from that user is treated as a label reply.
+const pendingLabel = new Map();
 
 // ── Message batching (3s debounce per user) ─────────────────────────────────
 
@@ -109,35 +91,18 @@ function bufferMessage(message) {
 
 // ── Ask for label, then organize ────────────────────────────────────────────
 
-async function askAndOrganize(channel, parsed, user, messages) {
-  // Send the "what's this about?" prompt
+function askAndOrganize(channel, parsed, user) {
   const askEmbed = formatAskLabel(parsed);
-  await channel.send({ embeds: [askEmbed] });
+  channel.send({ embeds: [askEmbed] });
 
-  // Mark that we're waiting for a label from this user
-  awaitingLabel.add(user.id);
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      pendingLabel.delete(user.id);
+      resolve(null); // Timeout - no label
+    }, LABEL_TIMEOUT);
 
-  // Wait for their reply
-  let label = null;
-  try {
-    const filter = (m) => m.author.id === user.id && !m.author.bot;
-    const collected = await channel.awaitMessages({
-      filter,
-      max: 1,
-      time: LABEL_TIMEOUT,
-      errors: ['time'],
-    });
-
-    const reply = collected.first();
-    if (reply && reply.content.toLowerCase() !== 'skip') {
-      label = reply.content.trim();
-    }
-  } catch {
-    // Timeout - no label provided, continue without
-  }
-
-  awaitingLabel.delete(user.id);
-  return label;
+    pendingLabel.set(user.id, { resolve, timer });
+  });
 }
 
 // ── Process batch ───────────────────────────────────────────────────────────
@@ -213,8 +178,15 @@ async function handleDM(message) {
     return;
   }
 
-  // If we're waiting for a label reply, don't process as new content
-  if (awaitingLabel.has(message.author.id)) return;
+  // If we're waiting for a label reply, resolve it instead of processing as content
+  if (pendingLabel.has(message.author.id)) {
+    const pending = pendingLabel.get(message.author.id);
+    pendingLabel.delete(message.author.id);
+    clearTimeout(pending.timer);
+    const label = message.content.toLowerCase() === 'skip' ? null : message.content.trim();
+    pending.resolve(label);
+    return;
+  }
 
   console.log(`[KYRAXX] DM from ${message.author.tag}: ${message.content?.slice(0, 80)}`);
 
@@ -272,7 +244,6 @@ client.on('guildMemberAdd', async (member) => {
 
   // Send DM before kicking
   try {
-    const { EmbedBuilder } = require('discord.js');
     const kickEmbed = new EmbedBuilder()
       .setColor(0xED4245)
       .setTitle(`${e('k_shield')}  Access Denied`)
