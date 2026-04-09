@@ -1,6 +1,6 @@
 require('dotenv').config();
 
-const { Client, GatewayIntentBits, Partials, Options, ChannelType } = require('discord.js');
+const { Client, GatewayIntentBits, Partials, Options, ChannelType, ActivityType } = require('discord.js');
 const { parseMessage } = require('./parser');
 const { routeContent } = require('./router');
 const { handleCommand } = require('./commands');
@@ -212,6 +212,17 @@ async function handleDM(message) {
 
 client.once('ready', () => {
   const mem = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
+
+  // ── Set presence: Do Not Disturb + custom status with animated emoji ──
+  client.user.setPresence({
+    status: 'dnd',
+    activities: [{
+      name: 'Personal Saver for my King !',
+      type: ActivityType.Custom,
+      state: 'Personal Saver for my King !',
+    }],
+  });
+
   console.log('');
   console.log('  \u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510');
   console.log('  \u2502  Kyraxx Organiser            \u2502');
@@ -219,7 +230,7 @@ client.once('ready', () => {
   console.log(`  \u2502  Bot:    ${client.user.tag.padEnd(24)}\u2502`);
   console.log(`  \u2502  Owner:  ${OWNER_ID.padEnd(24)}\u2502`);
   console.log(`  \u2502  Memory: ${(mem + 'MB').padEnd(24)}\u2502`);
-  console.log('  \u2502  Status: Online               \u2502');
+  console.log('  \u2502  Status: Do Not Disturb       \u2502');
   console.log('  \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518');
   console.log('');
 });
