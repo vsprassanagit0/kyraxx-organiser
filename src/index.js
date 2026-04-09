@@ -1,6 +1,6 @@
 require('dotenv').config();
 
-const { Client, GatewayIntentBits, Partials, Options, ChannelType } = require('discord.js');
+const { Client, GatewayIntentBits, Partials, Options, ChannelType, Collection } = require('discord.js');
 const { parseMessage } = require('./parser');
 const { routeContent } = require('./router');
 const { handleCommand } = require('./commands');
@@ -28,8 +28,9 @@ const client = new Client({
     GatewayIntentBits.DirectMessages,
   ],
   partials: [
-    Partials.Channel,  // Required for DM reception
+    Partials.Channel,
     Partials.Message,
+    Partials.User,
   ],
   makeCache: Options.cacheWithLimits({
     ...Options.DefaultMakeCacheSettings,
@@ -45,8 +46,8 @@ const client = new Client({
   sweepers: {
     ...Options.DefaultSweeperSettings,
     messages: {
-      interval: 300,   // Sweep every 5 minutes
-      lifetime: 600,   // Remove messages older than 10 minutes
+      interval: 300,
+      lifetime: 600,
     },
   },
 });
@@ -80,16 +81,11 @@ async function processBatch(messages) {
 
   const user = messages[0].author;
 
-  // Combine content from all messages
   const combinedContent = messages.map(m => m.content).filter(Boolean).join('\n\n');
-
-  // Collect all attachments
   const allAttachments = messages.flatMap(m => [...m.attachments.values()]);
 
-  // Parse with the first message for forwarded detection
   const parsed = parseMessage(combinedContent, allAttachments, messages[0]);
 
-  // Check if there's anything to organise
   if (parsed.contentTypes.length === 0 && !parsed.forwarded) {
     try {
       await messages[0].reply('\u2753 I couldn\'t find anything to organise. Send me links, text, code, or files!');
@@ -98,15 +94,12 @@ async function processBatch(messages) {
   }
 
   try {
-    // Route to the correct server channel
     const result = await routeContent(client, parsed, user);
 
-    // React to each original message with checkmark
     for (const msg of messages) {
       try { await msg.react('\u2705'); } catch { /* ignore */ }
     }
 
-    // Build confirmation summary
     const parts = [];
     if (parsed.urls.length) parts.push(`\uD83D\uDD17 ${parsed.urls.length} link(s)`);
     if (parsed.contentTypes.includes('text')) parts.push('\uD83D\uDCDD text');
@@ -133,6 +126,35 @@ async function processBatch(messages) {
   }
 }
 
+// ── DM handler ──────────────────────────────────────────────────────────────
+
+async function handleDM(message) {
+  if (message.author.bot) return;
+
+  // Owner-only
+  if (message.author.id !== OWNER_ID) {
+    try {
+      await message.reply('\uD83D\uDD12 This bot is private.');
+    } catch { /* ignore */ }
+    return;
+  }
+
+  console.log(`[KYRAXX] DM from ${message.author.tag}: ${message.content?.slice(0, 80)}`);
+
+  // Command handling (instant, no batching)
+  if (message.content.startsWith('!')) {
+    try {
+      await handleCommand(message);
+    } catch (err) {
+      console.error('[KYRAXX] Command error:', err.message);
+      try { await message.reply('\u274C Command failed. Try `!help`.'); } catch { /* ignore */ }
+    }
+    return;
+  }
+
+  bufferMessage(message);
+}
+
 // ── Event: ready ────────────────────────────────────────────────────────────
 
 client.once('ready', () => {
@@ -149,38 +171,75 @@ client.once('ready', () => {
   console.log('');
 });
 
-// ── Event: messageCreate ────────────────────────────────────────────────────
+// ── Event: messageCreate (primary handler) ──────────────────────────────────
 
-// Debug: log ALL incoming messages
 client.on('messageCreate', async (message) => {
-  console.log(`[KYRAXX] Message received | type: ${message.channel.type} | author: ${message.author?.tag} (${message.author?.id}) | bot: ${message.author?.bot} | content: ${message.content?.slice(0, 50)}`);
-
-  if (message.author.bot) return;
-  if (message.channel.type !== ChannelType.DM) return;
-
-  console.log(`[KYRAXX] DM from owner check: ${message.author.id} === ${OWNER_ID} => ${message.author.id === OWNER_ID}`);
-
-  // Owner-only
-  if (message.author.id !== OWNER_ID) {
-    try {
-      await message.reply('\uD83D\uDD12 This bot is private.');
-    } catch { /* ignore */ }
-    return;
+  // Handle partial channels (DMs)
+  if (message.channel?.partial) {
+    try { await message.channel.fetch(); } catch { return; }
   }
 
-  // Command handling (instant, no batching)
-  if (message.content.startsWith('!')) {
-    try {
-      await handleCommand(message);
-    } catch (err) {
-      console.error('[KYRAXX] Command error:', err.message);
-      try { await message.reply('\u274C Command failed. Try `!help`.'); } catch { /* ignore */ }
+  if (message.channel.type === ChannelType.DM) {
+    return handleDM(message);
+  }
+});
+
+// ── Fallback: Raw event handler for DMs ─────────────────────────────────────
+// discord.js sometimes fails to emit messageCreate for DM partials.
+// This raw handler catches those cases reliably.
+
+const handledMessages = new Set();
+
+client.on('raw', async (event) => {
+  if (event.t !== 'MESSAGE_CREATE') return;
+  if (event.d.channel_type !== 1) return; // 1 = DM
+
+  const msgId = event.d.id;
+
+  // Skip if already handled by messageCreate
+  // Give messageCreate 500ms to fire first
+  setTimeout(async () => {
+    if (handledMessages.has(msgId)) {
+      handledMessages.delete(msgId);
+      return;
     }
-    return;
+
+    console.log(`[KYRAXX] Raw DM fallback for message ${msgId}`);
+
+    try {
+      // Fetch the DM channel
+      const channel = await client.channels.fetch(event.d.channel_id);
+      if (!channel) return;
+
+      // Fetch the actual message object
+      const message = await channel.messages.fetch(msgId);
+      if (!message) return;
+
+      await handleDM(message);
+    } catch (err) {
+      console.error('[KYRAXX] Raw handler error:', err.message);
+    }
+  }, 500);
+});
+
+// Mark messages handled by the normal messageCreate path
+const origHandleDM = handleDM;
+const wrappedHandleDM = async (message) => {
+  handledMessages.add(message.id);
+  return origHandleDM(message);
+};
+
+// Override the messageCreate handler to mark handled
+client.removeAllListeners('messageCreate');
+client.on('messageCreate', async (message) => {
+  if (message.channel?.partial) {
+    try { await message.channel.fetch(); } catch { return; }
   }
 
-  // Buffer for batch processing
-  bufferMessage(message);
+  if (message.channel.type === ChannelType.DM) {
+    handledMessages.add(message.id);
+    return handleDM(message);
+  }
 });
 
 // ── Graceful shutdown ───────────────────────────────────────────────────────
@@ -204,6 +263,12 @@ setInterval(() => {
   const mem = process.memoryUsage();
   console.log(`[KYRAXX] Heap: ${Math.round(mem.heapUsed / 1024 / 1024)}MB / ${Math.round(mem.heapTotal / 1024 / 1024)}MB`);
 }, 600000);
+
+// ── Cleanup handled message IDs (prevent memory leak) ───────────────────────
+
+setInterval(() => {
+  handledMessages.clear();
+}, 60000);
 
 // ── Login ───────────────────────────────────────────────────────────────────
 
