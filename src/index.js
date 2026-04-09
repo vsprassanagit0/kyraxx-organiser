@@ -5,6 +5,7 @@ const { parseMessage } = require('./parser');
 const { routeContent } = require('./router');
 const { handleCommand } = require('./commands');
 const { formatAskLabel } = require('./formatter');
+const { e } = require('./emojis');
 const db = require('./db');
 
 // ── Validate required env vars ──────────────────────────────────────────────
@@ -149,17 +150,17 @@ async function processBatch(messages) {
 
     // Confirmation
     const parts = [];
-    if (parsed.urls.length) parts.push(`\uD83D\uDD17 ${parsed.urls.length} link(s)`);
-    if (parsed.contentTypes.includes('text')) parts.push('\uD83D\uDCDD text');
-    if (parsed.codeBlocks.length) parts.push(`\uD83D\uDCBB ${parsed.codeBlocks.length} code`);
-    if (parsed.attachments.length) parts.push(`\uD83D\uDCCE ${parsed.attachments.length} file(s)`);
-    if (parsed.isPrompt) parts.push('\uD83E\uDD16 prompt');
-    if (parsed.forwarded) parts.push('\uD83D\uDD04 forwarded');
+    if (parsed.urls.length) parts.push(`${e('k_link')} ${parsed.urls.length} link(s)`);
+    if (parsed.contentTypes.includes('text')) parts.push(`${e('k_note')} text`);
+    if (parsed.codeBlocks.length) parts.push(`${e('k_code')} ${parsed.codeBlocks.length} code`);
+    if (parsed.attachments.length) parts.push(`${e('k_media')} ${parsed.attachments.length} file(s)`);
+    if (parsed.isPrompt) parts.push(`${e('k_prompt')} prompt`);
+    if (parsed.forwarded) parts.push(`${e('k_forward')} forwarded`);
 
-    let reply = `\u2705 **Organised!**  ${parts.join('  \u2022  ')}`;
-    if (label) reply += `\n\uD83D\uDCCC Label: **"${label}"**`;
+    let reply = `${e('k_success')} **Organised!**  ${parts.join('  \u2022  ')}`;
+    if (label) reply += `\n${e('k_pin')} Label: **"${label}"**`;
     if (result.filedTo) {
-      reply += `\n\uD83D\uDCC2 Filed to: <#${result.filedTo}>  (${result.label})`;
+      reply += `\n${e('k_inbox')} Filed to: <#${result.filedTo}>  (${result.label})`;
     }
     if (result.errors.length) {
       reply += `\n\u26A0\uFE0F Errors: ${result.errors.join(', ')}`;
