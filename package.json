@@ -1,0 +1,14 @@
+{
+  "name": "kyraxx-organiser",
+  "version": "1.0.0",
+  "description": "Personal DM organiser bot - send it anything, it files it neatly",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.0.0",
+    "discord.js": "^14.16.0",
+    "dotenv": "^16.4.0"
+  }
+}

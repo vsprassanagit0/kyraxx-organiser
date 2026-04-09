@@ -1,0 +1,135 @@
+const fmt = require('./formatter');
+const db = require('./db');
+
+// ── Channel mapping ─────────────────────────────────────────────────────────
+
+function getChannelMap() {
+  return {
+    prompts:   process.env.CHANNEL_PROMPTS,
+    media:     process.env.CHANNEL_MEDIA,
+    links:     process.env.CHANNEL_LINKS,
+    forwarded: process.env.CHANNEL_FORWARDED,
+    code:      process.env.CHANNEL_CODE,
+    mix:       process.env.CHANNEL_MIX,
+  };
+}
+
+const ROUTE_LABELS = {
+  prompts:   '\uD83E\uDD16 Prompts',
+  media:     '\uD83D\uDCCE Media',
+  links:     '\uD83D\uDD17 Links',
+  forwarded: '\uD83D\uDD04 Forwarded',
+  code:      '\uD83D\uDCBB Code',
+  mix:       '\uD83D\uDCE6 Mix',
+};
+
+// ── Channel fetching ────────────────────────────────────────────────────────
+
+async function getChannel(client, channelId) {
+  if (!channelId) return null;
+  let channel = client.channels.cache.get(channelId);
+  if (!channel) {
+    try {
+      channel = await client.channels.fetch(channelId);
+    } catch {
+      return null;
+    }
+  }
+  return channel;
+}
+
+// ── Safe send with single retry on rate limit ───────────────────────────────
+
+async function safeSend(channel, payload) {
+  try {
+    return await channel.send(payload);
+  } catch (err) {
+    // discord.js may expose rate limits via status, httpStatus, or retry_after
+    const isRateLimit = err.status === 429 || err.httpStatus === 429;
+    if (isRateLimit) {
+      const retryAfter = err.retryAfter || err.retry_after || 2000;
+      await new Promise(r => setTimeout(r, retryAfter));
+      return await channel.send(payload);
+    }
+    throw err;
+  }
+}
+
+// ── Build embed based on route ──────────────────────────────────────────────
+
+function buildEmbeds(parsed, user) {
+  const route = parsed.route;
+
+  switch (route) {
+    case 'links':
+      return [fmt.formatLinks(parsed, user)];
+
+    case 'media':
+      return [fmt.formatMedia(parsed, user)];
+
+    case 'code':
+      // One embed per code block
+      return parsed.codeBlocks.map(block => fmt.formatCode(block, user));
+
+    case 'prompts':
+      return [fmt.formatPrompt(parsed, user)];
+
+    case 'forwarded':
+      return [fmt.formatForwarded(parsed, user)];
+
+    case 'mix':
+    default:
+      return [fmt.formatMix(parsed, user)];
+  }
+}
+
+// ── Main routing function ───────────────────────────────────────────────────
+
+async function routeContent(client, parsed, user) {
+  const channels = getChannelMap();
+  const route = parsed.route;
+  const channelId = channels[route];
+  const errors = [];
+  let filedTo = null;
+
+  if (!channelId) {
+    return { filedTo: null, route, label: ROUTE_LABELS[route], errors: ['Channel not configured'] };
+  }
+
+  try {
+    const channel = await getChannel(client, channelId);
+    if (!channel) {
+      errors.push('Channel not found');
+      return { filedTo: null, route, label: ROUTE_LABELS[route], errors };
+    }
+
+    const embeds = buildEmbeds(parsed, user);
+
+    // Prepare files for media/mix routes
+    const files = (parsed.attachments.length > 0 && (route === 'media' || route === 'mix' || route === 'forwarded'))
+      ? parsed.attachments.map(a => ({ attachment: a.url, name: a.name }))
+      : [];
+
+    // Send each embed (usually just 1, multiple for code blocks)
+    let lastMsg;
+    for (const embed of embeds) {
+      const payload = { embeds: [embed] };
+      // Attach files only to the first message
+      if (files.length > 0 && embed === embeds[0]) {
+        payload.files = files;
+      }
+      lastMsg = await safeSend(channel, payload);
+    }
+
+    // Save to database
+    db.saveEntry(user.id, parsed, channelId, lastMsg?.id || null);
+    filedTo = channelId;
+
+  } catch (err) {
+    errors.push(err.message);
+  }
+
+  return { filedTo, route, label: ROUTE_LABELS[route], errors };
+}
+
+module.exports = { routeContent };
