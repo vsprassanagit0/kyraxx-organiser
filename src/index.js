@@ -237,27 +237,17 @@ async function handleDM(message) {
 client.once('ready', () => {
   const mem = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
 
-  // ── Set presence: DND + custom status with gem emoji ──
-  // Bypass discord.js entirely - send raw Gateway opcode 3 (PRESENCE_UPDATE)
-  // discord.js strips the emoji field (bug #9760), so we go direct to the WS.
-  const ws = client.ws.shards.first();
-  if (ws) {
-    ws.send({
-      op: 3,  // PRESENCE_UPDATE
-      d: {
-        since: null,
-        activities: [{
-          name: 'Custom Status',
-          type: 4,  // ActivityType.Custom
-          state: 'Personal Saver for my King !',
-          emoji: { name: 'k_gem', id: '1491768039366987776', animated: false },
-        }],
-        status: 'dnd',
-        afk: false,
-      },
-    });
-    console.log('[KYRAXX] Presence set via raw Gateway: DND + k_gem emoji');
-  }
+  // ── Set presence: DND + custom status ──
+  // Note: Discord does NOT render custom emojis for bot statuses (platform limitation).
+  // Using Custom Status (type 4) for the text + DND status.
+  client.user.setPresence({
+    status: 'dnd',
+    activities: [{
+      type: ActivityType.Custom,
+      name: 'customstatus',
+      state: '\uD83D\uDC8E Personal Saver for my King !',
+    }],
+  });
 
   console.log('');
   console.log('  \u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510');
