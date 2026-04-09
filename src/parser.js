@@ -200,7 +200,8 @@ function parseAttachments(attachments) {
 
 function cleanText(text) {
   let cleaned = text;
-  cleaned = cleaned.replace(URL_REGEX, '');
+  // URLs are intentionally preserved so the Text section shows the full original content.
+  // URLs are still extracted separately for the Links section by parseUrls().
   // Use a fresh regex to avoid lastIndex state from extractCodeBlocks
   cleaned = cleaned.replace(/```(\w*)\n?([\s\S]*?)```/g, '');
   cleaned = cleaned.replace(/[\u200B-\u200D\uFEFF]/g, '');

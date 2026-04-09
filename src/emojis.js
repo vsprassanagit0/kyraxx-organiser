@@ -11,45 +11,45 @@
 
 const CUSTOM = {
   // ── Route/Category emojis (static) ──
-  k_link:       '',  // Neon blue chain link
-  k_code:       '',  // Neon green terminal icon
-  k_media:      '',  // Neon pink image icon
-  k_prompt:     '',  // Neon purple brain/AI icon
-  k_forward:    '',  // Grey/silver forward arrow
-  k_mix:        '',  // Neon orange puzzle piece
-  k_pin:        '',  // Gold pushpin
-  k_note:       '',  // Green notepad
-  k_file:       '',  // Document icon
-  k_check:      '',  // Green checkmark
-  k_stats:      '',  // Bar chart icon
-  k_search:     '',  // Magnifying glass
-  k_inbox:      '',  // Inbox tray
+  k_link:       '<:k_link:1491764771694055504>',  // Neon blue chain link
+  k_code:       '<:k_code:1491764781001216081>',  // Neon green terminal icon
+  k_media:      '<:k_media:1491764790006251650>',  // Neon pink image icon
+  k_prompt:     '<:k_prompt:1491764799116279960>',  // Neon purple brain/AI icon
+  k_forward:    '<:k_forward:1491764807710281799>',  // Grey/silver forward arrow
+  k_mix:        '<:k_mix:1491764816367587388>',  // Neon orange puzzle piece
+  k_pin:        '<:k_pin:1491764825108512849>',  // Gold pushpin
+  k_note:       '<:k_note:1491764835199746239>',  // Green notepad
+  k_file:       '<:k_file:1491764843781423204>',  // Document icon
+  k_check:      '<:k_check:1491764852258246687>',  // Green checkmark
+  k_stats:      '<:k_stats:1491764860864954440>',  // Bar chart icon
+  k_search:     '<:k_search:1491764871732134039>',  // Magnifying glass
+  k_inbox:      '<:k_inbox:1491764879881933042>',  // Inbox tray
 
   // ── URL category emojis (static) ──
-  k_video:      '',  // Play button / video
-  k_social:     '',  // Chat bubble
-  k_article:    '',  // Newspaper
-  k_docs:       '',  // Page/document
-  k_image:      '',  // Framed picture
-  k_ai:         '',  // Robot face
-  k_store:      '',  // Shopping bag
-  k_music:      '',  // Music note
-  k_web:        '',  // Globe
+  k_video:      '<:k_video:1491764889042292896>',  // Play button / video
+  k_social:     '<:k_social:1491764897820967063>',  // Chat bubble
+  k_article:    '<:k_article:1491764906695983115>',  // Newspaper
+  k_docs:       '<:k_file_doc:1491764979538596022>',  // Page/document
+  k_image:      '<:k_file_img:1491764950710882314>',  // Framed picture
+  k_ai:         '<:k_ai:1491764915411619974>',  // Robot face
+  k_store:      '<:k_store:1491764932755193968>',  // Shopping bag
+  k_music:      '<:k_music:1491764924056338462>',  // Music note
+  k_web:        '<:k_web:1491764941160448160>',  // Globe
 
   // ── File type emojis (static) ──
-  k_file_img:   '',  // Image file
-  k_file_vid:   '',  // Video file
-  k_file_aud:   '',  // Audio file
-  k_file_doc:   '',  // Document file
-  k_file_code:  '',  // Code file
-  k_file_zip:   '',  // Archive file
+  k_file_img:   '<:k_file_img:1491764950710882314>',  // Image file
+  k_file_vid:   '<:k_file_vid:1491764959606997194>',  // Video file
+  k_file_aud:   '<:k_file_aud:1491764969090318479>',  // Audio file
+  k_file_doc:   '<:k_file_doc:1491764979538596022>',  // Document file
+  k_file_code:  '<:k_file_code:1491764989575299153>',  // Code file
+  k_file_zip:   '<:k_file_zip:1491764998014500865>',  // Archive file
 
   // ── Animated emojis ──
-  k_loading:    '',  // Spinning loading circle
-  k_sparkle:    '',  // Sparkle/stars effect
-  k_typing:     '',  // Three dots typing
-  k_success:    '',  // Animated checkmark
-  k_pulse:      '',  // Pulsing glow dot
+  k_loading:    '<a:k_loading:1491765006855966853>',  // Spinning loading circle
+  k_sparkle:    '<a:k_sparkle:1491765015286517924>',  // Sparkle/stars effect
+  k_typing:     '<a:k_typing:1491765036732121190>',  // Three dots typing
+  k_success:    '<a:k_success:1491765027198341194>',  // Animated checkmark
+  k_pulse:      '<a:k_pulse:1491765048841080944>',  // Pulsing glow dot
 };
 
 // ── Unicode fallbacks ───────────────────────────────────────────────────────

@@ -39,6 +39,8 @@ const EMOJIS = {
   k_ai:        'https://cdn3.emoji.gg/emojis/9435-blurple-bot.png',
   k_music:     'https://cdn3.emoji.gg/emojis/8693-youtube-music.png',
   k_store:     'https://cdn3.emoji.gg/emojis/9183-shoppingcart.png',
+  k_docs:      'https://cdn3.emoji.gg/emojis/26099-notepad.png',
+  k_image:     'https://cdn3.emoji.gg/emojis/1301-photo.png',
   k_web:       'https://cdn3.emoji.gg/emojis/1119-globe.png',
   k_file_img:  'https://cdn3.emoji.gg/emojis/1301-photo.png',
   k_file_vid:  'https://cdn3.emoji.gg/emojis/7215-youtube-playbutton.png',
